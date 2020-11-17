@@ -6,8 +6,12 @@ import { buildSchema } from 'type-graphql';
 import cors from 'cors';
 import { createConnection } from 'typeorm';
 import { User } from './entities/User';
-import { HelloResolver } from './resolvers/hello';
 import { MyContext } from './types';
+import connectRedis from 'connect-redis';
+import session from 'express-session';
+import Redis from 'ioredis';
+import { Photo } from './entities/Photo';
+import { UserResolver } from './resolvers/user';
 
 const main = async () => {
   const connection = await createConnection({
@@ -18,12 +22,15 @@ const main = async () => {
     logging: true,
     synchronize: true,
     migrations: [path.join(__dirname, 'migrations/*')],
-    entities: [User]
+    entities: [User, Photo]
   });
 
   // await connection.runMigrations();
   
   const app = express();
+
+  const RedisStore = connectRedis(session);
+  const redis = new Redis();
 
   app.use(
     cors({
@@ -32,12 +39,33 @@ const main = async () => {
     })
   );
 
+  app.use(
+    session({
+      name: 'qid',
+      store: new RedisStore({
+        host: 'localhost',
+        port: 6379,
+        client: redis,
+        disableTouch: false, // TODO - change to true later
+      }),
+      cookie: {
+        maxAge: 1000 * 60 * 60,
+        httpOnly: true,
+        secure: false,
+        sameSite: 'lax'
+      },
+      saveUninitialized: false,
+      secret: 'ldjfalskdjadfj',
+      resave: false,
+    })
+  )
+ 
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [HelloResolver],
+      resolvers: [UserResolver],
       validate: false,
     }),
-    context: ({ req, res }): MyContext => ({ req, res })
+    context: ({ req, res }): MyContext => ({ req, res, redis })
   });
 
   apolloServer.applyMiddleware({ app, cors: false });
