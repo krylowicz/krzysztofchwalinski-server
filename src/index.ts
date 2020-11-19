@@ -12,9 +12,10 @@ import session from 'express-session';
 import Redis from 'ioredis';
 import { Photo } from './entities/Photo';
 import { UserResolver } from './resolvers/user';
+import { PhotoResolver } from './resolvers/photo';
 
 const main = async () => {
-  const connection = await createConnection({
+  await createConnection({
     type: 'postgres',
     username: 'postgres',
     password: 'postgres',
@@ -49,7 +50,7 @@ const main = async () => {
         disableTouch: false, // TODO - change to true later
       }),
       cookie: {
-        maxAge: 1000 * 60 * 60,
+        maxAge: 1000 * 60 * 60 * 2,
         httpOnly: true,
         secure: false,
         sameSite: 'lax'
@@ -62,7 +63,7 @@ const main = async () => {
  
   const apolloServer = new ApolloServer({
     schema: await buildSchema({
-      resolvers: [UserResolver],
+      resolvers: [UserResolver, PhotoResolver],
       validate: false,
     }),
     context: ({ req, res }): MyContext => ({ req, res, redis })

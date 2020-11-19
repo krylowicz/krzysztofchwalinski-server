@@ -41,14 +41,19 @@ export class UserResolver {
 
     const hashedPassword = await argon2.hash(password);
     
-    let user;
-    try {
-      user = await User.create({ username, password: hashedPassword }).save();
-    } catch (err) {
-      console.log(err);
+    const possibleUser = await User.findOne({ where: { username } });
+    if (possibleUser?.username == username) {
+      return {
+        errors: [{
+          field: 'username',
+          message: 'nazwa jest zajęta',
+        }] 
+      }
     }
 
-    req.session!.userId = user?.id;
+    const user = await User.create({ username, password: hashedPassword  }).save();
+    
+    req.session!.userId = user.id;
     return { user };
   }
 
@@ -98,6 +103,11 @@ export class UserResolver {
 
       resolve(true);
     }))
+  }
+
+  @Query(() => [User])
+  async getAllUsers(): Promise<User[]> {
+    return await User.find({});
   }
 
   @Query(() => User, { nullable: true })
